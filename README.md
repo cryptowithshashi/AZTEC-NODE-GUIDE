@@ -2,252 +2,233 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive kit for scaffolding, configuring, and running various Aztec node types (Full, Sequencer-Only, Prover) on the **alpha testnet**. This repository provides automated scripts and Docker Compose configurations to streamline the setup process.
+A beginner‑friendly toolkit to scaffold, configure, and run Aztec nodes—Full, Sequencer‑Only, and Prover—on the **alpha testnet**. Follow these steps to get up and running quickly, with detailed explanations along the way.
 
-**Current Target Aztec Version:** `0.85.0-alpha-testnet.5` (Ensure Docker image tags in `.env` and `docker-compose.yml` files match the desired version).
 
 ## Overview
 
-The Aztec network relies on different types of nodes for its operation. This kit provides a unified structure to manage setups for the primary node types involved in block production and validation on the alpha testnet. You can easily scaffold the necessary files and launch the desired node type using simple commands.
+This kit automates:
 
-## Node Types Explained
+- 🎛️ **Scaffolding**: Creates config files from templates.  
+- 🐳 **Dockerized Environments**: Launches each node in isolated containers via Docker Compose.  
+- 🔧 **Setup Assistance**: Installs dependencies (Docker, Node.js, Aztec CLI) and checks your environment.
 
-| Feature             | Full Node                      | Sequencer-Only Node           | Prover Node Stack                 |
-| :------------------ | :----------------------------- | :---------------------------- | :-------------------------------- |
-| **Primary Role** | Order txs, produce blocks, store history | Order txs, produce blocks | Generate ZK proofs for blocks     |
-| **Components Run** | Sequencer + Archiver           | Sequencer                     | Prover Node + Broker + Agent(s)   |
-| **Stores History?** | Yes (via Archiver)             | No                            | Yes (Prover Node includes Archiver) |
-| **Produces Blocks?**| Yes (via Sequencer)            | Yes                           | No (Validates blocks via proofs)  |
-| **Generates Proofs?**| No                             | No                            | Yes (via Agents)                  |
-| **Requires Validator Keys?** | Yes (`VALIDATOR_PRIVATE_KEY`) | Yes (`VALIDATOR_PRIVATE_KEY`) | No                                |
-| **Requires Prover Keys?** | No                             | No                            | Yes (`PROVER_PUBLISHER_PRIVATE_KEY`) |
-| **Complexity** | Medium                         | Medium                        | High                              |
-| **Resource Needs** | Medium                         | Medium                        | Very High (esp. RAM/CPU for Agent)|
+Pick a node type, fill in a few variables, and run one `npm` command to start.
+
+
+
+## Features
+
+- **Full Node**: Produces blocks, archives chain history, participates in P2P gossip.  
+- **Sequencer‑Only Node**: Orders transactions and builds blocks without storing full history.  
+- **Prover Node Stack**: Generates zero‑knowledge proofs via Prover Node, Broker, and Agents.  
+- **One‑Command Launch**: `npm run full`, `npm run sequencer`, `npm run prover`.  
+- **Cross‑Platform Consistency**: Docker ensures identical setups.  
+- **Automated Checks**: Validates Docker, Node.js, and Aztec CLI installations.
+
+
 
 ## System Requirements
 
-| Requirement         | Full Node                      | Sequencer-Only Node           | Prover Node Stack (Agent)        | Notes                                     |
-| :------------------ | :----------------------------- | :---------------------------- | :------------------------------- | :---------------------------------------- |
-| **Operating System**| Ubuntu/Debian (Recommended)    | Ubuntu/Debian (Recommended)   | Ubuntu/Debian (Recommended)    | macOS may work with manual adjustments    |
-| **CPU** | 8+ Cores                       | 8+ Cores                      | **16+ Cores (Agent)** | Agent is CPU-intensive                    |
-| **RAM** | 16GB+                          | 16GB+                         | **128GB+ (Agent)** | Agent is RAM-intensive                    |
-| **Storage** | 100GB+ SSD                     | 50GB+ SSD                     | ~1TB SSD (Prover Node state)     | Fast SSD Recommended                      |
-| **Network** | 25+ Mbps Upload/Download       | 25+ Mbps Upload/Download      | Stable Connection                | Public IP & Port 40400 Forwarding needed for Full/Sequencer P2P |
-| **Dependencies** | Docker, Docker Compose, Node.js, Aztec CLI | Docker, Docker Compose, Node.js, Aztec CLI | Docker, Docker Compose, Node.js, Aztec CLI | Handled by setup scripts            |
+| Requirement      | Full & Sequencer Nodes | Prover Node Stack     | Notes                              |
+|------------------|------------------------|-----------------------|------------------------------------|
+| **OS**           | Ubuntu/Debian          | Ubuntu/Debian         | macOS/WSL may work with tweaks     |
+| **CPU Cores**    | ≥ 8                    | ≥ 16                  | Prover agents are CPU‑heavy        |
+| **RAM**          | ≥ 16 GB                | ≥ 128 GB              | Prover agents need lots of memory |
+| **Disk**         | ≥ 100 GB SSD           | ≥ 1 TB SSD            | NVMe recommended                   |
+| **Network**      | ≥ 25 Mbps up/down      | Stable, high bandwidth| Port 40400 (TCP/UDP) must be open |
+| **Dependencies** | Docker, Compose, Node.js (v18+), Aztec CLI | Same           | `scripts/setup.sh` installs them   |
+
+
 
 ## Prerequisites
 
-* **Operating System:** Ubuntu/Debian-based Linux distribution (recommended).
-* **Privileges:** `sudo` or root access is required for setup scripts.
-* **Hardware:** Meet the minimum requirements outlined in the table above for your chosen node type.
-* **Network:** Stable internet connection. Publicly reachable IP address and port `40400` (TCP/UDP) forwarded for P2P communication if running Full or Sequencer nodes.
-* **Credentials & Keys:**
-    * **L1 Execution Client (EL) RPC URL:** Needed by all node types. Connects to Ethereum (Sepolia testnet).
-        * *Example Provider: Alchemy*
-            1.  Sign up/log in at [Alchemy](https://dashboard.alchemy.com/).
-            2.  Create a new App (Chain: Ethereum, Network: Sepolia).
-            3.  View Key and copy the HTTPS URL (e.g., `https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY`).
-    * **L1 Consensus Client (CL) RPC URL:** Needed by all node types. Connects to Ethereum's consensus layer (Sepolia testnet) for blob data.
-        * *Example Provider: DRPC*
-            1.  Sign up/log in at [DRPC](https://drpc.org/).
-            2.  Create an API Key for the Sepolia network.
-            3.  Copy the HTTPS URL (e.g., `https://lb.drpc.org/ogrpc?network=sepolia&dkey=YOUR_API_KEY`).
-        * *Note:* Not all providers offer reliable CL endpoints. Alchemy, QuickNode, DRPC are known options.
-    * **Validator Key Pair (for Full/Sequencer Nodes):**
-        * `VALIDATOR_PRIVATE_KEY`: A **new** Ethereum private key (Hex format, e.g., `0x...`). **DO NOT USE A MAINNET KEY.**
-        * `VALIDATOR_COINBASE`: The corresponding Ethereum public address for the private key above.
-    * **Prover Key Pair (for Prover Node):**
-        * `PROVER_PUBLISHER_PRIVATE_KEY`: A **new** Ethereum private key used by the Prover Node to submit proofs. **DO NOT USE A MAINNET KEY.**
-        * `PROVER_ID`: The corresponding Ethereum public address for the private key above.
-    * **(Optional) Blob Sink URL:** For Full/Sequencer nodes to offload blob fetching (e.g., from Alchemy).
+1. **OS**: Ubuntu/Debian-based Linux.  
+2. **Privileges**: `sudo`/root to install packages and run scripts.
+3. **Network**:  
+   - Stable Internet.  
+   - Public IP forwarding port 40400 (TCP/UDP) for Full/Sequencer nodes. 
+ 
+4. **Sepolia RPC URLs**:  
+   - **EL** (Execution Layer): e.g. Alchemy, Infura.  
+   - **CL** (Consensus Layer): e.g. DRPC, QuickNode.
+  
+5. **Testnet Keys**: Generate fresh validator and prover keys for Sepolia. **Never use mainnet keys!**
 
-**⚠️ Security Warning:** NEVER use Ethereum private keys that hold significant mainnet assets for testnet activities. Generate fresh keys specifically for running these nodes.
 
-## Quick Start (Overview)
 
-1.  **Clone:** `git clone https://github.com/your-org/aztec-node-kit.git && cd aztec-node-kit`
-2.  **Install:** `npm install`
-3.  **Scaffold:** `npm run scaffold`
-4.  **Configure:** `cp .env.example .env && nano .env` (Fill in your details)
-5.  **Run:** Choose *one* command: `npm run full`, `npm run sequencer`, or `npm run prover`
-6.  **Monitor:** `cd <node-type> && docker-compose logs -f`
-7.  **Stop:** `cd <node-type> && docker-compose down`
+## Installation & Setup
 
-## Running Specific Node Types (Detailed Guides)
+Clone the repository
 
-Follow these steps after completing the initial **Clone**, **Install**, **Scaffold**, and **Configure** steps from the Quick Start section above. Ensure your `.env` file is correctly populated with all necessary credentials for the node type you intend to run.
+```bash
+git clone https://github.com/cryptowithshashi/AZTEC-NODE-GUIDE.git
 
-### 1. Running a Full Node (Sequencer + Archiver)
+cd AZTEC-NODE-GUIDE
+```
 
-A Full Node participates in block production and maintains a complete history of the Aztec chain state.
+Run setup script (installs Docker, Compose, Node.js, Aztec CLI)
 
-**Prerequisites Met:**
-* Repository cloned, `npm install` run, `npm run scaffold` run.
-* `.env` file created and populated with:
-    * `ETHEREUM_HOSTS` (EL RPC)
-    * `L1_CONSENSUS_HOST_URLS` (CL RPC)
-    * `VALIDATOR_PRIVATE_KEY`
-    * `VALIDATOR_COINBASE`
-    * `P2P_IP` (Verify auto-detected or set manually)
-    * *(Optional)* `BLOB_SINK_URL`
+```bash
+chmod +x scripts/setup.sh
+sudo ./scripts/setup.sh
+```
 
-**Steps:**
+Copy example env and edit
 
-1.  **Execute the Setup Script:**
-    This command runs `sudo bash full-node/setup.sh`. It will:
-    * Verify root privileges.
-    * Check/install Docker, Docker Compose, Node.js, and Aztec CLI.
-    * Verify required environment variables are present in the root `.env`.
-    * Copy the root `.env` to `full-node/.env`.
-    * Pull the Aztec Docker image specified in `.env` (or `docker-compose.yml`).
-    * Start the Docker container(s) defined in `full-node/docker-compose.yml` in detached mode (`-d`).
-    ```bash
-    npm run full
-    ```
+```bash
+cp .env.example .env
+nano .env
+```
 
-2.  **Monitor Logs:**
-    Watch the node's output for syncing progress and potential errors.
-    ```bash
-    cd full-node
-    docker-compose logs -f
-    ```
-    Look for messages indicating connection to peers, fetching L1 data, and potentially proposing blocks once synced and registered.
+In `.env`, fill:
 
-3.  **(Optional but Recommended) Register as Validator:**
-    Once the node is running and synced, you need to register your validator address on L1 to participate in sequencing.
-    * Ensure `aztec` CLI is in your PATH (`export PATH="$HOME/.aztec/bin:$PATH"` if needed).
-    * Execute the command, replacing placeholders. Get the `staking-asset-handler` address from Aztec documentation or Discord for the alpha testnet.
-    ```bash
-    # Example command - use variables from your .env if possible
-    aztec add-l1-validator \
-      --l1-rpc-urls $ETHEREUM_HOSTS \
-      --private-key $VALIDATOR_PRIVATE_KEY \
-      --attester $VALIDATOR_COINBASE \
-      --proposer-eoa $VALIDATOR_COINBASE \
-      --staking-asset-handler 0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \ # Example handler, VERIFY CURRENT ADDRESS
-      --l1-chain-id 11155111 # Sepolia Chain ID
-    ```
-    * *Note:* There might be daily registration quotas on the testnet. If you encounter issues, try again later.
+```dotenv
+SEPOLIA_EL_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+SEPOLIA_CL_RPC_URL=https://beacon.drpc.org/YOUR_KEY
+VALIDATOR_KEY=0xYourTestnetValidatorKey
+PROVER_KEY=0xYourTestnetProverKey
+NODE_MONIKER="MyAztecNode"
+# EXTERNAL_IP=your.public.ip.address  # optional
+```
 
-4.  **Stopping the Node:**
-    ```bash
-    cd full-node
-    docker-compose down
-    ```
+## Configuration
 
-### 2. Running a Sequencer-Only Node
+All node scripts and Docker Compose files read from the root `.env`. Ensure your values are correct before proceeding.
 
-A Sequencer-Only Node focuses solely on ordering transactions and producing blocks, without storing the full historical state like an Archiver.
 
-**Prerequisites Met:**
-* Repository cloned, `npm install` run, `npm run scaffold` run.
-* `.env` file created and populated with:
-    * `ETHEREUM_HOSTS` (EL RPC)
-    * `L1_CONSENSUS_HOST_URLS` (CL RPC)
-    * `VALIDATOR_PRIVATE_KEY`
-    * `VALIDATOR_COINBASE`
-    * `P2P_IP` (Verify auto-detected or set manually)
-    * *(Optional)* `BLOB_SINK_URL`
+## Quick Start
 
-**Steps:**
+For full node
 
-1.  **Execute the Setup Script:**
-    This command runs `sudo bash sequencer-node/setup.sh`. It performs the same dependency checks and setup steps as the full node script but uses `sequencer-node/docker-compose.yml`.
-    ```bash
-    npm run sequencer
-    ```
+```bash
+npm run Full
+```
 
-2.  **Monitor Logs:**
-    ```bash
-    cd sequencer-node
-    docker-compose logs -f
-    ```
-    Look for similar logs as the Full Node regarding P2P connections and L1 interactions.
+For Sequencer-only Node
 
-3.  **(Optional but Recommended) Register as Validator:**
-    Follow the same steps as described in the Full Node guide (Step 3) to register your validator.
+```bash
+npm run sequencer
+```
 
-4.  **Stopping the Node:**
-    ```bash
-    cd sequencer-node
-    docker-compose down
-    ```
+For Prover Node Stack
 
-### 3. Running a Prover Node Stack
+```bash
+npm run prover
+```
+To view the logs:
 
-The Prover setup is more complex, involving multiple services working together to generate ZK proofs for Aztec blocks. It requires significant hardware resources.
+```bash
+cd <node-type>                    
+```
+Replace <node-type> with full-node, sequencer, or prover-stack
 
-**Prerequisites Met:**
-* Repository cloned, `npm install` run, `npm run scaffold` run.
-* `.env` file created and populated with:
-    * `ETHEREUM_HOSTS` (EL RPC)
-    * `L1_CONSENSUS_HOST_URLS` (CL RPC)
-    * `PROVER_PUBLISHER_PRIVATE_KEY`
-    * `PROVER_ID` (Address corresponding to the publisher key)
-    * `P2P_IP` (For the Prover Node component, if P2P is enabled)
+To stop:
 
-**Steps:**
+```bash
+docker-compose logs -f
+```
 
-1.  **Execute the Setup Script:**
-    This command runs `sudo bash prover-node/setup.sh`. It performs dependency checks and setup, using `prover-node/docker-compose.yml` which defines three services: `prover_node`, `broker`, and `agent`.
-    ```bash
-    npm run prover
-    ```
 
-2.  **Monitor Logs:**
-    Since there are multiple services, you can view logs for all of them or target specific ones:
-    ```bash
-    cd prover-node
+ This step might not be necessary if using docker-compose -f
+docker-compose -f docker/<node-type>.yml logs -f # Replace <node-type> with full-node, sequencer, or prover-stack
 
-    # View logs for all prover services (Node, Broker, Agent)
-    docker-compose logs -f
 
-    # View logs for only the Prover Agent
-    docker-compose logs -f agent
+## Node Types & Detailed Guides
 
-    # View logs for only the Prover Node
-    docker-compose logs -f prover_node
+### Full Node
 
-    # View logs for only the Broker
-    docker-compose logs -f broker
-    ```
-    * **Prover Node Logs:** Look for messages about polling L1 for unproven blocks and submitting jobs to the broker.
-    * **Broker Logs:** Look for messages about receiving jobs from the node and distributing them to agents.
-    * **Agent Logs:** Look for messages about polling the broker for jobs, performing proof generation (this can take time and be CPU/RAM intensive), and returning results to the broker.
+```bash
+npm run full
+```
+**Role**: Order txs, produce blocks, archive history.
 
-3.  **Stopping the Node Stack:**
-    This command stops and removes all containers defined in `prover-node/docker-compose.yml`.
-    ```bash
-    cd prover-node
-    docker-compose down
-    ```
+**Optional**: Register as validator:
+
+```bash
+aztec add-l1-validator \
+  --l1-rpc-urls $SEPOLIA_EL_RPC_URL \
+  --private-key $VALIDATOR_KEY \
+  --attester $NODE_MONIKER \
+  --proposer-eoa $NODE_MONIKER \
+  --staking-asset-handler <handler_address> \
+  --l1-chain-id 11155111
+```
+*(Note: You'll need the correct `<handler_address>`)*
+
+### Sequencer‑Only Node
+
+```bash
+npm run sequencer
+```
+**Role**: Order txs and build blocks without full history.
+
+### Prover Node Stack
+
+```bash
+npm run prover
+```
+**Components**:
+- Prover Node (coordinates proofs)
+- Broker (distributes tasks)
+- Agents (compute proofs)
+
+**Resources**: ≥ 128 GB RAM, ≥ 16 cores recommended.
 
 ## Repository Structure
 
-aztec-node-kit/├── full-node/│   ├── setup.sh          # Installs deps, checks env, runs 'docker-compose up' for Full Node│   └── docker-compose.yml# Docker Compose definition for Full Node (Sequencer + Archiver)├── sequencer-node/│   ├── setup.sh          # Installs deps, checks env, runs 'docker-compose up' for Sequencer│   └── docker-compose.yml# Docker Compose definition for Sequencer-Only Node├── prover-node/│   ├── setup.sh          # Installs deps, checks env, runs 'docker-compose up' for Prover│   └── docker-compose.yml# Docker Compose definition for Prover (Node, Broker, Agent)├── .env.example          # Template for environment variables (RPC URLs, keys, etc.)├── .env                  # Your actual environment variables (created from .env.example, gitignored)├── scripts/│   └── scaffold.js       # Node.js script to generate the directory structure and files├── .vscode/              # Recommended VS Code settings & extensions│   ├── extensions.json│   └── settings.json├── package.json          # Defines npm scripts (scaffold, full, sequencer, prover)├── package-lock.json     # Records exact dependency versions├── README.md             # This file└── .gitignore            # Prevents committing sensitive files like .env and node_modules
-## Troubleshooting
-
-* **Permission Errors:** Ensure you run the `setup.sh` scripts (via `npm run <type>`) with `sudo`.
-* **Docker/Docker Compose Issues:** Verify installation (`docker --version`, `docker-compose --version`). Restart Docker daemon (`sudo systemctl restart docker`).
-* **Aztec CLI Issues:** Ensure `aztec-up` is in PATH (`export PATH="$HOME/.aztec/bin:$PATH"`). Run `aztec-up alpha-testnet` manually if needed.
-* **RPC URL Errors:** Double-check URLs and API keys in `.env`. Ensure they are for Sepolia.
-* **Port Conflicts:** Modify `ports` in `docker-compose.yml` if `8080` or `40400` are in use (e.g., `"8081:8080"`).
-* **P2P Connectivity (Full/Sequencer):** Verify `P2P_IP` in `.env`. Ensure port `40400` (TCP/UDP) is forwarded in your firewall/router.
-* **Node Not Syncing:** Check logs (`docker-compose logs -f`) for specific errors. Consult the Aztec Discord.
-* **Prover Resource Issues:** If the `agent` crashes, it likely needs more CPU/RAM. Adjust `deploy.resources` in `prover-node/docker-compose.yml` and ensure the host has sufficient capacity.
-* **`.env` File Not Found:** Ensure you copied `.env.example` to `.env` in the *root* directory before running `npm run <type>`.
+```bash
+AZTEC-NODE-GUIDE/
+├── docker/                     # Optional custom Compose files
+│   ├── full-node.yml
+│   ├── sequencer.yml
+│   └── prover-stack.yml
+├── scripts/
+│   ├── setup.sh                # Installs deps & Aztec CLI
+│   ├── check-deps.sh           # Verifies prerequisites
+│   └── generate-env.sh         # (Optional) .env helper
+├── .env.example                # Sample env file
+├── .gitignore
+├── LICENSE
+├── package.json                # npm scripts: full, sequencer, prover
+└── README.md                   # This file
+```
 
 ## Advanced Configuration
 
-* **Custom Ports/Volumes:** Modify `ports` and `volumes` sections in `docker-compose.yml` files.
-* **Resource Limits (Prover):** Uncomment and adjust `deploy.resources` in `prover-node/docker-compose.yml`.
-* **Multiple Prover Agents:** Replicate the `agent` service definition in `prover-node/docker-compose.yml` for more containers (potentially on different machines). `PROVER_AGENT_COUNT` controls parallelism *within* an agent container.
-* **Using `host.docker.internal`:** If running L1 nodes on the *same host*, use `http://host.docker.internal:<port>` instead of `http://localhost:<port>` in `.env`. Alternatively, use `network_mode: host` (less isolation).
+**Edit Compose files**: Tweak `docker/*.yml` for custom ports, volumes, resource limits.
+
+**Manual Compose**:
+
+```bash
+docker-compose -f docker/full-node.yml up -d
+docker-compose -f docker/full-node.yml logs -f
+docker-compose -f docker/full-node.yml down
+```
+
+## Troubleshooting
+
+| Issue                     | Solution                                                                 |
+| :------------------------ | :----------------------------------------------------------------------- |
+| Permission denied         | Re-run `setup.sh` with `sudo` or add user to `docker` group.             |
+| Docker not installed      | Confirm `docker --version`, then re-run `setup.sh`.                      |
+| Aztec CLI missing         | Add to PATH: `export PATH="$HOME/.aztec/bin:$PATH"`. Run `source "$HOME/.aztec/env"`. |
+| RPC URL errors            | Verify `.env` values and API keys. Ensure URLs are active.                |
+| Port 40400 blocked        | Forward UDP/TCP in firewall/router. Check `EXTERNAL_IP`.                 |
+| Prover resource limits    | Ensure host has ≥ 128 GB RAM and ≥ 16 CPU cores. This is expected.       |
+
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See LICENSE for details.
+
 
 ## Disclaimer
 
-This software is provided "as is". Running nodes on testnets involves risks. This kit is for development/testing on the Aztec alpha testnet. **Do not use mainnet keys.** Use at your own risk. Refer to official [Aztec Documentation](https://docs.aztec.network/).
+For **alpha testnet use only**. Do **not** use mainnet credentials or assets. Use at your own risk.
+
+
+## About Me
+
+- Twitter: @SHASHI522004
+- GitHub: cryptowithshashi

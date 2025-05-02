@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint", // JavaScript/TypeScript linting
+    "esbenp.prettier-vscode", // Code formatting
+    "ms-azuretools.vscode-docker", // Docker integration
+    "redhat.vscode-yaml", // YAML editing support (for docker-compose)
+    "shd101wyy.markdown-preview-enhanced", // Enhanced Markdown preview
+    "timonwong.shellcheck", // Shell script linting
+    "github.vscode-github-actions" // GitHub Actions integration
+  ]
+}

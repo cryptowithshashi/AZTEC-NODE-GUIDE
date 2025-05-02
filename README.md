@@ -59,81 +59,71 @@ Pick a node type, fill in a few variables, and run one `npm` command to start.
 
 ## Installation & Setup
 
-Clone the repository
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/cryptowithshashi/AZTEC-NODE-GUIDE.git 
+    cd AZTEC-NODE-GUIDE
+    ```
 
-```bash
-git clone https://github.com/cryptowithshashi/AZTEC-NODE-GUIDE.git
+2.  **Install Scaffolding Dependencies:**
+    This installs `fs-extra` needed by the scaffold script.
+    ```bash
+    npm install
+    ```
 
-cd AZTEC-NODE-GUIDE
-```
+3.  **Run the Scaffolding Script:**
+    This creates the `full-node/`, `sequencer-node/`, `prover-node/` directories and populates them with the necessary `setup.sh` (already executable) and `docker-compose.yml` files.
+    ```bash
+    npm run scaffold
+    ```
 
-Run setup script (installs Docker, Compose, Node.js, Aztec CLI)
+4.  **Configure Environment Variables:**
+    Copy the example environment file and edit it with your specific RPC URLs, keys, and public IP address.
+    ```bash
+    cp .env.example .env
+    nano .env # Or use your preferred editor
+    ```
+    * Fill in `ETHEREUM_HOSTS`, `L1_CONSENSUS_HOST_URLS`.
+    * Fill in `VALIDATOR_PRIVATE_KEY` and `VALIDATOR_COINBASE` if running Full/Sequencer.
+    * Fill in `PROVER_PUBLISHER_PRIVATE_KEY` and `PROVER_ID` if running Prover.
+    * Set `P2P_IP` (the setup scripts attempt to auto-detect, but verify it's correct, especially if behind NAT).
+    * *(Optional)* Set `BLOB_SINK_URL`.
 
-```bash
-chmod +x scripts/setup.sh
-sudo ./scripts/setup.sh
-```
+5.  **Run the Setup Script for Your Chosen Node Type:**
+    Choose *one* command. These scripts will check/install dependencies (Docker, Node.js, Aztec CLI), validate your `.env` file, and start the Docker containers.
+    
+    For Full Node:
 
-Copy example env and edit
+    ```bash
+    npm run full
+    ```
 
-```bash
-cp .env.example .env
-nano .env
-```
+    For Sequencer-Only Node:
 
-In `.env`, fill:
+    ```
+    npm run sequencer
+    ```
 
-```dotenv
-SEPOLIA_EL_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-SEPOLIA_CL_RPC_URL=https://beacon.drpc.org/YOUR_KEY
-VALIDATOR_KEY=0xYourTestnetValidatorKey
-PROVER_KEY=0xYourTestnetProverKey
-NODE_MONIKER="MyAztecNode"
-# EXTERNAL_IP=your.public.ip.address  # optional
-```
+    For Prover Node:
 
-## Configuration
+    ```
+    npm run prover
+    ```
 
-All node scripts and Docker Compose files read from the root `.env`. Ensure your values are correct before proceeding.
+6.  **Monitor Your Node:**
+    Navigate to the specific node directory and view logs:
+    ```bash
+    cd <node-type>
+    ```
+    Replace <node-type> with full-node, sequencer, or prover-stack
 
-
-## Quick Start
-
-For full node
-
-```bash
-npm run Full
-```
-
-For Sequencer-only Node
-
-```bash
-npm run sequencer
-```
-
-For Prover Node Stack
-
-```bash
-npm run prover
-```
-To view the logs:
-
-```bash
-cd <node-type>                    
-```
-Replace <node-type> with full-node, sequencer, or prover-stack
-
-To stop:
-
-```bash
-docker-compose logs -f
-```
-
-
- This step might not be necessary if using docker-compose -f
-docker-compose -f docker/<node-type>.yml logs -f # Replace <node-type> with full-node, sequencer, or prover-stack
-
-
+7.  **Stopping Your Node:**
+    Navigate to the specific node directory and stop the containers:
+    ```bash
+    docker-compose logs -f
+    ```
+    This step might not be necessary if using docker-compose -f docker-compose -f docker/<node-type>.yml logs -f # Replace <node-type> with full-node, sequencer, or prover-stack
+    
 ## Node Types & Detailed Guides
 
 ### Full Node
